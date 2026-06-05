@@ -10,8 +10,8 @@ his financial guide on top of the raw numbers.
 - `data/transactions.json` — append-only ledger of actual expenses, each mapped to a `head_id`.
 - `data/accounts.json`     — registry of Yash's payment accounts (cards/banks). Map every statement to the right account; grow as new accounts arrive.
 - `data/statement_register.json` — per-statement dues (period, total/min due, due date) so we can answer "what's still due this month".
-- `data/income.json`       — income ledger (business draw, affiliate, interest, dividend, startup). Feeds the P&L. Has `pending_classification` + `excluded_internal`.
-- `data/internal_register.json` — money movements NOT in the budget: internal/family transfers, credit-card bill settlements, third-party-borne costs (e.g. Gopipura repair to be billed to Anita).
+- `data/income.json`       — income ledger. Holds personal income on PNB 3382 (affiliate, interest, dividend, startup) AND **business income on the GrowthSaga company account (COG, account=`growthsaga_current_0512`, category=`business_income`)**. Feeds the P&L. Has `pending_classification` + `excluded_internal`. Owner's draws from GrowthSaga to personal are NOT income here (they live in `internal_register`).
+- `data/internal_register.json` — money movements NOT in the budget: internal/family transfers, credit-card bill settlements, third-party-borne costs (e.g. Gopipura repair to be billed to Anita), and **GrowthSaga business charges** (`business_expenses`, e.g. bank SMS charge — not a personal head).
 - `data/balances.json`     — opening/closing balance snapshots per account (assets +, liabilities -). Feeds the Balances tab / net position. Investments to be added later.
 - `data/Yash_Budget.xlsx`  — generated master workbook (Dashboard, Plan, Monthly Actuals, Transactions).
 - `data/monthly_actuals.csv` — CSV mirror of the heads x months matrix (for cloud upload).
@@ -100,7 +100,23 @@ position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
   Axis statement to track real spends.
 - **Growth Saga draws** (From:XXXX0512 / NEFT) = owner's draw from Yash's own business ->
   **internal_register.internal_transfers (in)**, NOT personal income (avoids double-count;
-  real income tracked at the Growth Saga company account). Same treatment as April.
+  real income is recognized at the Growth Saga company account — see below). Same treatment as April.
+- **Growth Saga company current account (`growthsaga_current_0512`) — LIVE since 2026-06-05.**
+  PNB current a/c 0910102100000512 (folder `account statements/GrowthSaga Current 0512/`). This
+  is where Yash's **full-time-job income from Circle of Greatness (COG)** lands, via inbound
+  foreign remittance: **NIUM PTE** (Singapore IMPS-IN) and **Citi "GLOBAL REMITTANCE-OTHERS"**
+  (NEFT_IN). It's a **pass-through**: COG pays in, then almost the whole amount is drawn to
+  personal PNB 3382 (`To:XXXX3382` = owner's draw). Processing rules:
+  - Each COG inbound deposit -> `income.json` (account=`growthsaga_current_0512`,
+    category=`business_income`, source="Circle of Greatness (COG)"). **Recognize income HERE**,
+    once. The matching `To:XXXX3382` draw stays an internal transfer (don't double-count).
+  - GrowthSaga bank charges (SMS chrg etc.) -> `internal_register.business_expenses` (business
+    cost, NOT a personal budget head — keep them out of `transactions.json`).
+  - Add opening/closing snapshots to `balances.json` (asset). Reconcile opening + income -
+    draws - charges = closing; consecutive statements should chain (one's closing = next's opening).
+  - Yash chose a **combined-but-tagged P&L** (2026-06-05): COG business income shows in the same
+    Income/P&L as personal income, distinguishable by the Account column. P&L Net will swing large
+    until more expense accounts (ICICI/Axis) are added — that's timing, not a real loss.
 - **Gopipura property** maintenance + light bills (UPI payee "PRADIPKU"/"pradipshah 6971",
   BARB) -> **third_party_borne, billed to Anita Agarwal**, NOT Yash's budget. (Corrected by
   Yash 2026-06-05: PRADIPKU/pradipshah 6971 is the **Gopipura** property payee, NOT Yenpure
@@ -109,8 +125,10 @@ position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
   (kept as April) — don't conflate the two.
 - **Gopipura repair** (JAG MOHA 9662992503@axl) -> third_party_borne, billed to
   **Anita Agarwal**, NOT Yash's budget.
-- Income sources: Growth Saga (own business - draws), Ambient United (startup),
-  PayPal (affiliate), SGB interest, dividends. Anitadevi (a/c 3368) = internal, ignore.
+- Income sources: **Circle of Greatness (COG)** = Yash's full-time job, recognized at the
+  Growth Saga company account (`business_income`); Ambient United (startup); PayPal (affiliate);
+  SGB interest; dividends. Growth Saga *draws* to personal = internal (not income).
+  Anitadevi (a/c 3368) = internal, ignore.
 
 ## Mapping memory (merchant/keyword -> head)  — confirmed by Yash 2026-06-05
 - Groceries/supermarket: Blinkit, "Blinkit Money", JioMart, DMart, Reliance Retail
@@ -144,7 +162,12 @@ position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
 ## Accounts on file
 - **IndusInd Platinum RuPay Credit Card ending 9000** (Yash's main UPI/spending card).
   Cycle ~5th-to-4th, statement day 4, due day 24. Statements decrypt with Yash's PDF
-  password. Still pending from Yash: other cards + primary bank account(s).
+  password.
+- **PNB Savings 3382** (primary personal bank, GPay-linked; PDF opens without password).
+- **GrowthSaga Current 0512** (company current a/c; COG income source — see Special heads).
+  PDF opens without password.
+- Still pending from Yash: **ICICI + Axis credit-card** statements (bills paid from PNB via
+  BillDesk — get them to track real spends).
 
 ## Statement filing (since 2026-06-05)
 - One folder per account under `account statements/<account folder>/`. IndusInd 9000 ->
@@ -155,7 +178,8 @@ position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
   processing a statement, UPDATE it. When Yash asks to process a new statement for an account,
   tell him to share data starting from that account's `next_needed_from`. As of 2026-06-05:
   PNB 3382 captured through 2026-06-05 (next from 2026-06-06); IndusInd 9000 through 2026-06-04
-  (next from 2026-06-05).
+  (next from 2026-06-05); GrowthSaga 0512 through 2026-06-03 (next from 2026-06-04 — Jun is a
+  partial month).
 
 ## Git (since 2026-06-05)
 - Remote: https://github.com/growthsaga87-cpu/yashos (PUBLIC). Push as owner
