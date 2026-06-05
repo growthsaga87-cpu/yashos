@@ -1,0 +1,14 @@
+# Core dependencies for WAT framework tools.
+# Install with:  pip install -r requirements.txt
+
+python-dotenv>=1.0.0     # Load secrets from .env
+requests>=2.31.0         # HTTP calls
+
+# --- Budgeting tools ---
+openpyxl>=3.1.0          # Generate the local Excel workbook
+google-api-python-client>=2.0.0   # Google Sheets mirror
+google-auth-oauthlib>=1.0.0       # OAuth for the chosen Google account
+
+# --- Add per-tool dependencies below as needed ---
+# anthropic>=0.40.0
+# firecrawl-py>=1.0.0

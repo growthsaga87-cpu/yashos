@@ -1,0 +1,33 @@
+# Secrets & credentials — NEVER commit these
+.env
+credentials.json
+token.json
+*.pem
+*.key
+
+# Personal financial data — kept LOCAL only (repo is public)
+account statements/
+data/
+
+# Temporary / regenerable processing files
+.tmp/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
