@@ -92,6 +92,11 @@ Yash sends expenses as a typed list OR bank statement files (CSV/PDF) — handle
   Cycle ~5th-to-4th, statement day 4, due day 24. Statements decrypt with Yash's PDF
   password. Still pending from Yash: other cards + primary bank account(s).
 
+## Statement filing (since 2026-06-05)
+- One folder per account under `account statements/<account folder>/`. IndusInd 9000 ->
+  `account statements/IndusInd Platinum RuPay CC 9000/`. Each account's `statements_folder`
+  is recorded in `data/accounts.json`. Naming: `<account> <period start> to <period end>.pdf`.
+
 ## Git (since 2026-06-05)
 - Remote: https://github.com/growthsaga87-cpu/yashos (PUBLIC). Push as owner
   `growthsaga87-cpu`. After any code/tool/workflow change, commit + push.
