@@ -35,8 +35,14 @@ his financial guide on top of the raw numbers.
 - Dashboard + Monthly Actuals show one column **per FY month from April through the
   current month** (auto-extends each month; empty months show 0). Helpers live in
   `lib_budget.py` (`fy_months`, `dashboard_matrix`, `current_month`).
-- Dashboard columns: Monthly Budget | <each month actual> | YTD Actual |
-  Budget (Apr-now) = monthly_equiv x #months | Variance | Status.
+- Dashboard columns: Monthly Budget | for each FY month a pair {<month> actual,
+  <month> vs Bud} | YTD Actual | Budget (Apr-now) = monthly_equiv x #months |
+  YTD Variance | Status.
+- "<Mon> vs Bud" = that month's actual - monthly budget. The variance cell is
+  highlighted **red when the month overspent**, **green when under**, blank when
+  there was no spend that month (build_workbook + sync_gsheets apply the colour).
+  Lumpy heads (insurance, etc.) will show a big red spike in their due month —
+  judge those against Cash-Due-This-Month, not the flat monthly budget.
 - Run `python tools/build_workbook.py [YYYY-MM]` — the optional arg sets the
   "as-of" month the axis runs up to (default = current month).
 

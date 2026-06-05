@@ -117,24 +117,23 @@ def dashboard_matrix(plan, ledger, months):
     """Multi-month FY dashboard as plain data (no styling).
 
     Returns (headers, body_rows, total_row). Each body row is:
-      [particulars, monthly_budget, <actual per month...>, ytd, period_budget,
-       ytd_variance, status, this_month_variance]
-    period_budget = monthly_equivalent * number_of_months (accrual benchmark);
-    ytd_variance = ytd - period_budget; status flags OVER / Under / On Track.
-    this_month_variance = (latest month's actual) - monthly_budget — the cash view
-    of the current month against the head's monthly budget (lumpy heads swing).
-    The current-month column is highlighted red (over) / green (under) downstream.
+      [particulars, monthly_budget,
+       <actual, vs_budget> for each month,
+       ytd, period_budget, ytd_variance, status]
+    Each month's actual is followed by a "<Mon> vs Bud" cell = actual - monthly
+    budget (the cash view of that month against the head's monthly budget; lumpy
+    heads swing). Those variance cells are highlighted red (over) / green (under)
+    downstream. period_budget = monthly_equivalent * number_of_months (accrual
+    benchmark); ytd_variance = ytd - period_budget; status flags OVER/Under/On Track.
     """
     abm = actuals_by_head_month(ledger)
     n = len(months)
-    cur = months[-1] if months else None
-    cur_lbl = month_label(cur) if cur else "This Month"
-    headers = (["Particulars", "Monthly Budget"]
-               + [month_label(m) for m in months]
-               + ["YTD Actual", "Budget (Apr-now)", "YTD Variance", "Status",
-                  f"{cur_lbl} vs Budget"])
+    headers = ["Particulars", "Monthly Budget"]
+    for m in months:
+        headers += [month_label(m), f"{MONTH_NAMES[int(m[5:7])]} vs Bud"]
+    headers += ["YTD Actual", "Budget (Apr-now)", "YTD Variance", "Status"]
     body = []
-    tot_me = tot_ytd = tot_cur = 0.0
+    tot_me = tot_ytd = 0.0
     tot_month = [0.0] * n
     for h in plan["heads"]:
         me = monthly_equivalent(plan, h)
@@ -150,19 +149,19 @@ def dashboard_matrix(plan, ledger, months):
             status = "Under"
         else:
             status = "On Track"
-        cur_actual = vals[-1] if vals else 0.0
-        month_var = cur_actual - me
-        body.append([h["particulars"], round(me)] + [round(v) for v in vals]
-                    + [round(ytd), round(pbudget), round(var), status,
-                       round(month_var)])
+        row = [h["particulars"], round(me)]
+        for v in vals:
+            row += [round(v), round(v - me)]
+        row += [round(ytd), round(pbudget), round(var), status]
+        body.append(row)
         tot_me += me
         tot_ytd += ytd
-        tot_cur += cur_actual
         for i, v in enumerate(vals):
             tot_month[i] += v
-    total = (["TOTAL", round(tot_me)] + [round(x) for x in tot_month]
-             + [round(tot_ytd), round(tot_me * n), round(tot_ytd - tot_me * n), "",
-                round(tot_cur - tot_me)])
+    total = ["TOTAL", round(tot_me)]
+    for i in range(n):
+        total += [round(tot_month[i]), round(tot_month[i] - tot_me)]
+    total += [round(tot_ytd), round(tot_me * n), round(tot_ytd - tot_me * n), ""]
     return headers, body, total
 
 

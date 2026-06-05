@@ -180,30 +180,30 @@ _WHITE = {"red": 1.0, "green": 1.0, "blue": 1.0}
 
 
 def color_dashboard_variance(svc, sid, plan, ledger, months):
-    """Red/green the '<Mon> vs Budget' column on the Dashboard tab: red where
-    this month's spend is over the monthly budget, green where under, white when
-    no spend this month. Mirrors build_workbook's current-month highlighting."""
+    """Red/green each '<Mon> vs Bud' column on the Dashboard tab: red where that
+    month's spend is over the monthly budget, green where under, white when there
+    was no spend that month. Mirrors build_workbook's per-month highlighting."""
     gid = sheet_id(svc, sid, "Dashboard")
     if gid is None:
         return
-    headers, body, _total = dashboard_matrix(plan, ledger, months)
+    _headers, body, _total = dashboard_matrix(plan, ledger, months)
     n = len(months)
-    var_col = len(headers) - 1            # 0-based last column
-    cur_idx = n + 1                       # current-month actual within a body row
+    # within a 0-based body row: month i has actual at idx 2+2i, variance at 3+2i
+    pairs = [(2 + 2 * i, 3 + 2 * i) for i in range(n)]
     first_body_row = 3                    # title, blank, header, then body
     requests = []
     for i, row in enumerate(body):
-        cur_actual = row[cur_idx]
-        if not cur_actual:
-            color = _WHITE
-        else:
-            color = _RED if row[var_col] > 0 else _GREEN
         grow = first_body_row + i
-        requests.append({"repeatCell": {
-            "range": {"sheetId": gid, "startRowIndex": grow, "endRowIndex": grow + 1,
-                      "startColumnIndex": var_col, "endColumnIndex": var_col + 1},
-            "cell": {"userEnteredFormat": {"backgroundColor": color}},
-            "fields": "userEnteredFormat.backgroundColor"}})
+        for actual_idx, var_idx in pairs:
+            if not row[actual_idx]:
+                color = _WHITE
+            else:
+                color = _RED if row[var_idx] > 0 else _GREEN
+            requests.append({"repeatCell": {
+                "range": {"sheetId": gid, "startRowIndex": grow, "endRowIndex": grow + 1,
+                          "startColumnIndex": var_idx, "endColumnIndex": var_idx + 1},
+                "cell": {"userEnteredFormat": {"backgroundColor": color}},
+                "fields": "userEnteredFormat.backgroundColor"}})
     if requests:
         svc.spreadsheets().batchUpdate(
             spreadsheetId=sid, body={"requests": requests}).execute()

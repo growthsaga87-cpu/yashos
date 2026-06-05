@@ -95,10 +95,10 @@ def build_dashboard(wb, plan, ledger, months):
     headers, body, total = dashboard_matrix(plan, ledger, months)
     ncols = len(headers)
     n = len(months)
-    monthvar_col = ncols        # <Mon> vs Budget — last column
-    status_col = ncols - 1      # Status
-    ytdvar_col = ncols - 2      # YTD Variance
-    curmonth_col = 2 + n        # the latest month's actual column (1-based)
+    status_col = ncols          # Status — last column
+    ytdvar_col = ncols - 1       # YTD Variance
+    # for month i (0-based): actual at col 3+2i, variance at col 4+2i (1-based)
+    var_cols = [(3 + 2 * i, 4 + 2 * i) for i in range(n)]
     span = f"{months[0][:7]} to {months[-1][:7]}" if months else "no data yet"
 
     ws.append([f"BUDGET DASHBOARD  —  FY 2026-27  ({span})"])
@@ -118,12 +118,12 @@ def build_dashboard(wb, plan, ledger, months):
             ws.cell(row=r, column=ytdvar_col).fill = OVER_FILL
         elif status in ("Under", "On Track"):
             ws.cell(row=r, column=status_col).fill = UNDER_FILL
-        # Current-month view: red if this month's spend is over the monthly
-        # budget, green if under — but only when there was spend this month.
-        cur_actual = row[curmonth_col - 1]
-        if cur_actual:
-            ws.cell(row=r, column=monthvar_col).fill = (
-                OVER_FILL if row[monthvar_col - 1] > 0 else UNDER_FILL)
+        # Per-month view: red if that month's spend is over the monthly budget,
+        # green if under — but only for months that actually had spend.
+        for actual_col, vcol in var_cols:
+            if row[actual_col - 1]:
+                ws.cell(row=r, column=vcol).fill = (
+                    OVER_FILL if row[vcol - 1] > 0 else UNDER_FILL)
 
     ws.append(total)
     last = ws.max_row
@@ -137,8 +137,8 @@ def build_dashboard(wb, plan, ledger, months):
                 continue
             ws.cell(row=r, column=c).number_format = MONEY
             ws.cell(row=r, column=c).alignment = RIGHT
-    # widths: Particulars, Monthly Budget, per-month, YTD, Budget, YTD Var, Status, Mon-var
-    widths = [34, 15] + [12] * len(months) + [13, 16, 13, 16, 17]
+    # widths: Particulars, Monthly Budget, <actual, vs-budget> per month, YTD, Budget, YTD Var, Status
+    widths = [34, 15] + [12, 12] * len(months) + [13, 16, 13, 16]
     _autosize(ws, widths)
     ws.freeze_panes = "C4"
 
