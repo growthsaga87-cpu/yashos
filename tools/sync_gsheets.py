@@ -101,10 +101,13 @@ def monthly_actuals_rows(plan, ledger, months):
 def income_rows(income, months):
     headers, body, total = income_matrix(income, months)
     rows = [headers] + body + [total]
-    pend = income.get("pending_classification", [])
-    if pend:
-        rows += [[], ["PENDING CLASSIFICATION (not counted yet)"]]
-        rows += [[r["date"], r["source"], "", round(float(r["amount"])), "", r.get("note", "")] for r in pend]
+    for title, key in [("OTHER INFLOWS - not income (asset sale / capital refund)", "other_inflows"),
+                       ("PENDING CLASSIFICATION (not counted yet)", "pending_classification")]:
+        items = income.get(key, [])
+        if items:
+            rows += [[], [title]]
+            rows += [[r["date"], r["source"], r.get("category", ""),
+                      round(float(r["amount"])), "", r.get("note", "")] for r in items]
     return rows
 
 

@@ -206,14 +206,18 @@ def build_income(wb, income, months):
     for c in range(1, len(headers) + 1):
         ws.cell(row=last, column=c).fill = TOTAL_FILL
         ws.cell(row=last, column=c).font = BOLD
-    # pending / excluded notes below
-    pend = income.get("pending_classification", [])
-    if pend:
+    # below-the-line inflows that are NOT counted as income
+    below = ([("OTHER INFLOWS - not income (asset sale / capital refund)", income.get("other_inflows", []))]
+             + [("PENDING CLASSIFICATION (not counted yet)", income.get("pending_classification", []))])
+    for title, items in below:
+        if not items:
+            continue
         ws.append([])
-        ws.append(["PENDING CLASSIFICATION (not counted yet)"])
+        ws.append([title])
         ws.cell(row=ws.max_row, column=1).font = BOLD
-        for r in pend:
-            ws.append([r["date"], r["source"], "", round(float(r["amount"])), "", r.get("note", "")])
+        for r in items:
+            ws.append([r["date"], r["source"], r.get("category", ""),
+                       round(float(r["amount"])), "", r.get("note", "")])
     for r in range(2, ws.max_row + 1):
         ws.cell(row=r, column=4).number_format = MONEY
     _autosize(ws, [12, 30, 20, 14, 22, 40])
