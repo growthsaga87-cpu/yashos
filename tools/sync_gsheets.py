@@ -165,6 +165,50 @@ def write_tab(svc, sid, tab, rows):
         valueInputOption="RAW", body={"values": rows}).execute()
 
 
+def sheet_id(svc, sid, title):
+    meta = svc.spreadsheets().get(spreadsheetId=sid).execute()
+    for s in meta["sheets"]:
+        if s["properties"]["title"] == title:
+            return s["properties"]["sheetId"]
+    return None
+
+
+# cell background colours mirroring the xlsx (OVER red / UNDER green)
+_RED = {"red": 0.972, "green": 0.796, "blue": 0.678}
+_GREEN = {"red": 0.776, "green": 0.937, "blue": 0.808}
+_WHITE = {"red": 1.0, "green": 1.0, "blue": 1.0}
+
+
+def color_dashboard_variance(svc, sid, plan, ledger, months):
+    """Red/green the '<Mon> vs Budget' column on the Dashboard tab: red where
+    this month's spend is over the monthly budget, green where under, white when
+    no spend this month. Mirrors build_workbook's current-month highlighting."""
+    gid = sheet_id(svc, sid, "Dashboard")
+    if gid is None:
+        return
+    headers, body, _total = dashboard_matrix(plan, ledger, months)
+    n = len(months)
+    var_col = len(headers) - 1            # 0-based last column
+    cur_idx = n + 1                       # current-month actual within a body row
+    first_body_row = 3                    # title, blank, header, then body
+    requests = []
+    for i, row in enumerate(body):
+        cur_actual = row[cur_idx]
+        if not cur_actual:
+            color = _WHITE
+        else:
+            color = _RED if row[var_col] > 0 else _GREEN
+        grow = first_body_row + i
+        requests.append({"repeatCell": {
+            "range": {"sheetId": gid, "startRowIndex": grow, "endRowIndex": grow + 1,
+                      "startColumnIndex": var_col, "endColumnIndex": var_col + 1},
+            "cell": {"userEnteredFormat": {"backgroundColor": color}},
+            "fields": "userEnteredFormat.backgroundColor"}})
+    if requests:
+        svc.spreadsheets().batchUpdate(
+            spreadsheetId=sid, body={"requests": requests}).execute()
+
+
 def main(as_of=None):
     plan = load_plan()
     ledger = load_ledger()
@@ -179,6 +223,7 @@ def main(as_of=None):
     ensure_tabs(svc, sid, ["Dashboard", "P&L", "Balances", "Plan",
                            "Monthly Actuals", "Income", "Transactions"])
     write_tab(svc, sid, "Dashboard", dashboard_rows(plan, ledger, months))
+    color_dashboard_variance(svc, sid, plan, ledger, months)
     write_tab(svc, sid, "P&L", pnl_rows(ledger, income, months))
     write_tab(svc, sid, "Balances", balances_rows(balances))
     write_tab(svc, sid, "Plan", plan_rows(plan))

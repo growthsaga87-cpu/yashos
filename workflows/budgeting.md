@@ -95,10 +95,12 @@ position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
 - **Growth Saga draws** (From:XXXX0512 / NEFT) = owner's draw from Yash's own business ->
   **internal_register.internal_transfers (in)**, NOT personal income (avoids double-count;
   real income tracked at the Growth Saga company account). Same treatment as April.
-- **Yenpure property** maintenance + light bills (UPI payee "PRADIPKU"/"pradipshah 6971",
-  BARB) -> **third_party_borne, billed to Anita Agarwal**, NOT Yash's budget (same as
-  Gopipura). NOTE: a separate UPI payee literally named "YENPURE" (787425031...@ptsb) is
-  Yash's own **medical** (kept as April) — don't conflate the two.
+- **Gopipura property** maintenance + light bills (UPI payee "PRADIPKU"/"pradipshah 6971",
+  BARB) -> **third_party_borne, billed to Anita Agarwal**, NOT Yash's budget. (Corrected by
+  Yash 2026-06-05: PRADIPKU/pradipshah 6971 is the **Gopipura** property payee, NOT Yenpure
+  — earlier entries were mislabelled Yenpure and have been relabelled Gopipura.) NOTE: a
+  separate UPI payee literally named "YENPURE" (787425031...@ptsb) is Yash's own **medical**
+  (kept as April) — don't conflate the two.
 - **Gopipura repair** (JAG MOHA 9662992503@axl) -> third_party_borne, billed to
   **Anita Agarwal**, NOT Yash's budget.
 - Income sources: Growth Saga (own business - draws), Ambient United (startup),
@@ -146,7 +148,7 @@ position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
   account (`last_captured_date`, `captured_through_period_end`, `next_needed_from`). After
   processing a statement, UPDATE it. When Yash asks to process a new statement for an account,
   tell him to share data starting from that account's `next_needed_from`. As of 2026-06-05:
-  PNB 3382 captured through 2026-05-31 (next from 2026-06-01); IndusInd 9000 through 2026-06-04
+  PNB 3382 captured through 2026-06-05 (next from 2026-06-06); IndusInd 9000 through 2026-06-04
   (next from 2026-06-05).
 
 ## Git (since 2026-06-05)

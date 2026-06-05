@@ -94,8 +94,11 @@ def build_dashboard(wb, plan, ledger, months):
     ws = wb.create_sheet("Dashboard", 0)  # first sheet
     headers, body, total = dashboard_matrix(plan, ledger, months)
     ncols = len(headers)
-    status_col = ncols          # Status is the last column
-    var_col = ncols - 1         # Variance just before it
+    n = len(months)
+    monthvar_col = ncols        # <Mon> vs Budget — last column
+    status_col = ncols - 1      # Status
+    ytdvar_col = ncols - 2      # YTD Variance
+    curmonth_col = 2 + n        # the latest month's actual column (1-based)
     span = f"{months[0][:7]} to {months[-1][:7]}" if months else "no data yet"
 
     ws.append([f"BUDGET DASHBOARD  —  FY 2026-27  ({span})"])
@@ -108,12 +111,19 @@ def build_dashboard(wb, plan, ledger, months):
     for row in body:
         ws.append(row)
         r = ws.max_row
-        status = row[-1]
+        # YTD accrual view: flag the Status (+ YTD Variance) cell
+        status = row[status_col - 1]
         if status == "OVER":
             ws.cell(row=r, column=status_col).fill = OVER_FILL
-            ws.cell(row=r, column=var_col).fill = OVER_FILL
+            ws.cell(row=r, column=ytdvar_col).fill = OVER_FILL
         elif status in ("Under", "On Track"):
             ws.cell(row=r, column=status_col).fill = UNDER_FILL
+        # Current-month view: red if this month's spend is over the monthly
+        # budget, green if under — but only when there was spend this month.
+        cur_actual = row[curmonth_col - 1]
+        if cur_actual:
+            ws.cell(row=r, column=monthvar_col).fill = (
+                OVER_FILL if row[monthvar_col - 1] > 0 else UNDER_FILL)
 
     ws.append(total)
     last = ws.max_row
@@ -122,11 +132,13 @@ def build_dashboard(wb, plan, ledger, months):
         ws.cell(row=last, column=c).font = BOLD
 
     for r in range(hrow + 1, ws.max_row + 1):
-        for c in range(2, ncols):  # every numeric col except Status
+        for c in range(2, ncols + 1):  # every numeric col except Status
+            if c == status_col:
+                continue
             ws.cell(row=r, column=c).number_format = MONEY
             ws.cell(row=r, column=c).alignment = RIGHT
-    # widths: Particulars, Monthly Budget, one per month, YTD, Budget, Variance, Status
-    widths = [34, 15] + [12] * len(months) + [13, 16, 13, 16]
+    # widths: Particulars, Monthly Budget, per-month, YTD, Budget, YTD Var, Status, Mon-var
+    widths = [34, 15] + [12] * len(months) + [13, 16, 13, 16, 17]
     _autosize(ws, widths)
     ws.freeze_panes = "C4"
 
