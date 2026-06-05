@@ -8,11 +8,14 @@ his financial guide on top of the raw numbers.
 ## Key files
 - `data/budget_plan.json`  — source-of-truth plan (27 heads, amounts, frequency, due months). EDIT ONLY when Yash changes a budget; ask before changing.
 - `data/transactions.json` — append-only ledger of actual expenses, each mapped to a `head_id`.
+- `data/accounts.json`     — registry of Yash's payment accounts (cards/banks). Map every statement to the right account; grow as new accounts arrive.
+- `data/statement_register.json` — per-statement dues (period, total/min due, due date) so we can answer "what's still due this month".
 - `data/Yash_Budget.xlsx`  — generated master workbook (Dashboard, Plan, Monthly Actuals, Transactions).
 - `data/monthly_actuals.csv` — CSV mirror of the heads x months matrix (for cloud upload).
 - `tools/budget_summary.py` — prints monthly-equivalent + bare-minimum total.
 - `tools/record_expenses.py` — validates + appends a staging file of mapped expenses.
 - `tools/build_workbook.py` — regenerates the workbook + CSV from plan + ledger.
+- NOTE: `data/` and `account statements/` are gitignored (repo is PUBLIC). Financial data lives local + Google Sheet only; only code/tools/workflows go to GitHub.
 
 ## Core numbers (v1, 2026-06-05)
 - Bare-minimum monthly (all heads, monthly-equivalent): **Rs 2,78,667**.
@@ -23,7 +26,16 @@ his financial guide on top of the raw numbers.
 - monthly -> x12/yr ; yearly -> /12 ; half-yearly -> x2/yr then /12.
 - Monthly-equivalent = budget * occurrences_per_year / 12  (accrual / sinking-fund view).
 - Cash-due-this-month = full budget in due_months, else 0 for lumpy heads (cash view).
-- Dashboard shows BOTH so Yash sees the even-spread plan and the real cash spike.
+
+## Dashboard layout (FY-aware, since 2026-06-05)
+- Tracking the Indian financial year **FY 2026-27 (April -> March)**.
+- Dashboard + Monthly Actuals show one column **per FY month from April through the
+  current month** (auto-extends each month; empty months show 0). Helpers live in
+  `lib_budget.py` (`fy_months`, `dashboard_matrix`, `current_month`).
+- Dashboard columns: Monthly Budget | <each month actual> | YTD Actual |
+  Budget (Apr-now) = monthly_equiv x #months | Variance | Status.
+- Run `python tools/build_workbook.py [YYYY-MM]` — the optional arg sets the
+  "as-of" month the axis runs up to (default = current month).
 
 ## Recurring task: logging expenses (weekly/monthly)
 Yash sends expenses as a typed list OR bank statement files (CSV/PDF) — handle both.
@@ -35,7 +47,7 @@ Yash sends expenses as a typed list OR bank statement files (CSV/PDF) — handle
      merchant -> head mappings here as they're confirmed (see Mapping memory below).
 3. Write the mapped rows to `.tmp/staging_expenses.json` (see record_expenses.py format).
 4. Run `python tools/record_expenses.py .tmp/staging_expenses.json`.
-5. Run `python tools/build_workbook.py` (optionally with a `YYYY-MM` to set dashboard month).
+5. Run `python tools/build_workbook.py` (optionally with a `YYYY-MM` as-of month; default = current month — see Dashboard layout below).
 6. Mirror to Google Sheets (see Cloud sync below), then summarize for Yash:
    what's over/under, running month total vs Rs 2,78,667, any heads not yet touched.
 
@@ -50,9 +62,40 @@ Yash sends expenses as a typed list OR bank statement files (CSV/PDF) — handle
 - Run `python tools/sync_gsheets.py [YYYY-MM]` after every `build_workbook.py`.
 - If token ever breaks: delete token.json and re-run to re-auth.
 
-## Mapping memory (merchant/keyword -> head)
-Add confirmed mappings here so categorization gets faster over time:
-- (none yet)
+## Mapping memory (merchant/keyword -> head)  — confirmed by Yash 2026-06-05
+- Groceries/supermarket: Blinkit, "Blinkit Money", JioMart, DMart, Reliance Retail
+  (grocery), Magson, M S Store, vegetable/kirana UPI (Mahesh Mannubhai, Kisanawati
+  Devi, Jay Bajrangbali, etc.) -> **household**
+- Restaurants / eating out: Zomato, restaurant & food-vendor UPI, The Bros Creamery,
+  Rajhans Cine World (food court), Chai Naka, bakeries -> **food**
+- Fuel: Krishna Petroleum + "FUEL SURCHARGE AND GST" -> **car_petrol**
+- Pharmacy / clinics: Dr Agarwal's Health, Mayur Pharma -> **medical**
+- Mobile: Vodafone Idea / "UPI VI", **Reliance Retail Ltd "Utilities" = phone recharge** -> **phone**
+- Apparel: Landmark/EasyBuy, Maximal Ventures -> **shopping**
+- Recreation/clubs/cinema: Avadh Clubs, Imagicaa, **Paraizo Club**, **PVR**, Chhaba -> **entertainment**
+- School: Fountainhead -> **school_fees** (Saisha's school)
+- Zillion Analytics -> **business**
+- **CRED** ("Merchandise" debits) -> **misc** (confirmed park-in-misc)
+- **Ola Financial Services** (cab/Ola Money) -> **misc**
+- **IRCTC** = dad's card -> **misc** (not Yash's own travel; park here for now)
+- Personal care (e.g. Satyveer Sain) -> **misc** (no dedicated head)
+
+## Refund / credit handling (confirmed approach)
+- Record refunds/reversals as **negative** rows to the SAME head so a charged-then-
+  refunded item (e.g. Imagicaa) nets to zero. Surcharge waivers offset fuel surcharge.
+- **Skip** card payments (BBPS PAYMENT) — they aren't expenses.
+- Statement reconciliation: staged DR total must equal the statement's
+  "Purchases & Other Charges"; recorded credits (excl. BBPS) + BBPS = "Payment & Other Credits".
+
+## Accounts on file
+- **IndusInd Platinum RuPay Credit Card ending 9000** (Yash's main UPI/spending card).
+  Cycle ~5th-to-4th, statement day 4, due day 24. Statements decrypt with Yash's PDF
+  password. Still pending from Yash: other cards + primary bank account(s).
+
+## Git (since 2026-06-05)
+- Remote: https://github.com/growthsaga87-cpu/yashos (PUBLIC). Push as owner
+  `growthsaga87-cpu`. After any code/tool/workflow change, commit + push.
+- `data/` & `account statements/` are gitignored — never force-add them.
 
 ## Edge cases / learnings
 - Lumpy heads (SP Maintenance Apr/Oct, Life Insurance May, Car Insurance Nov,
@@ -60,3 +103,6 @@ Add confirmed mappings here so categorization gets faster over time:
   That's expected — judge them against Cash-Due-This-Month, not monthly-equiv.
 - SP Maintenance = Rs 42,800 EACH occurrence (twice/yr), confirmed by Yash 2026-06-05.
 - Never overwrite budget_plan.json without confirming the change with Yash.
+- A single statement can straddle two calendar months (e.g. 05/04-04/05): map each
+  txn to its own date's month. Watch consecutive statements for clean period
+  boundaries (no overlap) — verify closing balance of one = opening of the next.
