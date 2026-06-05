@@ -16,6 +16,8 @@ MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 ROOT = Path(__file__).resolve().parent.parent
 PLAN_PATH = ROOT / "data" / "budget_plan.json"
 LEDGER_PATH = ROOT / "data" / "transactions.json"
+INCOME_PATH = ROOT / "data" / "income.json"
+BALANCES_PATH = ROOT / "data" / "balances.json"
 
 
 def load_plan():
@@ -24,6 +26,18 @@ def load_plan():
 
 def load_ledger():
     return json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
+
+
+def load_income():
+    if not INCOME_PATH.exists():
+        return {"income": [], "pending_classification": [], "excluded_internal": []}
+    return json.loads(INCOME_PATH.read_text(encoding="utf-8"))
+
+
+def load_balances():
+    if not BALANCES_PATH.exists():
+        return {"accounts": []}
+    return json.loads(BALANCES_PATH.read_text(encoding="utf-8"))
 
 
 def save_ledger(ledger):
@@ -139,3 +153,58 @@ def dashboard_matrix(plan, ledger, months):
     total = (["TOTAL", round(tot_me)] + [round(x) for x in tot_month]
              + [round(tot_ytd), round(tot_me * n), round(tot_ytd - tot_me * n), ""])
     return headers, body, total
+
+
+# ---------------------------------------------------------------- income / P&L
+def income_by_month(income):
+    d = defaultdict(float)
+    for r in income.get("income", []):
+        d[r["date"][:7]] += float(r["amount"])
+    return d
+
+
+def expense_by_month(ledger):
+    d = defaultdict(float)
+    for t in ledger["transactions"]:
+        d[t["month"]] += float(t["amount"])
+    return d
+
+
+def income_matrix(income, months):
+    """Income tab as plain data: (headers, body_rows, total_row)."""
+    headers = ["Date", "Source", "Category", "Amount", "Account", "Note"]
+    body = [[r["date"], r["source"], r.get("category", ""), round(float(r["amount"])),
+             r.get("account", ""), r.get("note", "")]
+            for r in sorted(income.get("income", []), key=lambda x: x["date"])]
+    total = ["TOTAL", "", "", round(sum(float(r["amount"]) for r in income.get("income", []))), "", ""]
+    return headers, body, total
+
+
+def pnl_matrix(ledger, income, months):
+    """Month-on-month P&L: (headers, body_rows). Rows: Income, Expenses, Net."""
+    inc = income_by_month(income)
+    exp = expense_by_month(ledger)
+    headers = ["Line"] + [month_label(m) for m in months] + ["YTD"]
+    inc_row = ["Total Income"] + [round(inc.get(m, 0.0)) for m in months] + [round(sum(inc.get(m, 0.0) for m in months))]
+    exp_row = ["Total Expenses (recorded)"] + [round(exp.get(m, 0.0)) for m in months] + [round(sum(exp.get(m, 0.0) for m in months))]
+    net_row = ["Net (Income - Expenses)"] + [round(inc.get(m, 0.0) - exp.get(m, 0.0)) for m in months] + [round(sum(inc.get(m, 0.0) - exp.get(m, 0.0) for m in months))]
+    return headers, [inc_row, exp_row, net_row]
+
+
+# ---------------------------------------------------------------- balances
+def balances_matrix(balances):
+    """Latest balance per account + net position.
+    Returns (headers, body_rows, net_row). Liabilities are shown negative."""
+    headers = ["Account", "Type", "Latest Balance", "As Of", "Source"]
+    body = []
+    net = 0.0
+    for a in balances.get("accounts", []):
+        snaps = sorted(a.get("snapshots", []), key=lambda s: s["date"])
+        if not snaps:
+            continue
+        last = snaps[-1]
+        signed = last["balance"] if a["kind"] == "asset" else -last["balance"]
+        net += signed
+        body.append([a["name"], a["kind"], round(signed), last["date"], last.get("source", "")])
+    net_row = ["NET POSITION (assets - liabilities)", "", round(net), "", ""]
+    return headers, body, net_row

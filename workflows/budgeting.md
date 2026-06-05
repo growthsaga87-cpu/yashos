@@ -10,6 +10,9 @@ his financial guide on top of the raw numbers.
 - `data/transactions.json` — append-only ledger of actual expenses, each mapped to a `head_id`.
 - `data/accounts.json`     — registry of Yash's payment accounts (cards/banks). Map every statement to the right account; grow as new accounts arrive.
 - `data/statement_register.json` — per-statement dues (period, total/min due, due date) so we can answer "what's still due this month".
+- `data/income.json`       — income ledger (business draw, affiliate, interest, dividend, startup). Feeds the P&L. Has `pending_classification` + `excluded_internal`.
+- `data/internal_register.json` — money movements NOT in the budget: internal/family transfers, credit-card bill settlements, third-party-borne costs (e.g. Gopipura repair to be billed to Anita).
+- `data/balances.json`     — opening/closing balance snapshots per account (assets +, liabilities -). Feeds the Balances tab / net position. Investments to be added later.
 - `data/Yash_Budget.xlsx`  — generated master workbook (Dashboard, Plan, Monthly Actuals, Transactions).
 - `data/monthly_actuals.csv` — CSV mirror of the heads x months matrix (for cloud upload).
 - `tools/budget_summary.py` — prints monthly-equivalent + bare-minimum total.
@@ -61,6 +64,32 @@ Yash sends expenses as a typed list OR bank statement files (CSV/PDF) — handle
 - Spreadsheet: https://docs.google.com/spreadsheets/d/1aFIJpOKSCnhM4J7oXrJXbRbYjl9dkBhLC2ZMCXqKdG8/edit
 - Run `python tools/sync_gsheets.py [YYYY-MM]` after every `build_workbook.py`.
 - If token ever breaks: delete token.json and re-run to re-auth.
+
+## Workbook tabs (build_workbook.py / sync_gsheets.py)
+Dashboard, **P&L** (income vs recorded expenses, month-wise), **Balances** (latest
+position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
+`sync_gsheets.ensure_tabs()` adds any missing tab to the existing spreadsheet.
+
+## Bank statements (vs card statements)
+- Parse with `pdfplumber` `extract_table()` (clean cols: Date, Withdrawal, Deposit,
+  Balance, Narration). Rows are reverse-chronological; use the Balance column to
+  reconcile (opening + deposits - withdrawals = closing).
+- Separate into: **expenses** (-> budget heads), **income** (-> income.json),
+  **internal/settlement** (-> internal_register.json), and capture opening/closing
+  (-> balances.json). NEVER let transfers / cc-bill payments hit the budget.
+- Tag every expense note with payment mode: **"cash expense"** (ATM) vs
+  **"online payment"** (UPI/GPay) so cash-vs-online is reportable per head.
+- PNB savings 3382 is GPay-linked (all GPay UPI lands here). PDF opens WITHOUT a
+  password.
+
+## Special heads / rules (confirmed by Yash 2026-06-05)
+- **Gold Kitty (5g gold/month)** -> head `gold_kitty` (Investment). ~Rs 15,790/mo, varies.
+- **ICICI credit card** exists (bill paid from PNB via BillDesk). Get its statements
+  to track real spends; the PNB bill payment stays in internal_register (no double count).
+- **Gopipura repair** (JAG MOHA 9662992503@axl) -> third_party_borne, billed to
+  **Anita Agarwal**, NOT Yash's budget.
+- Income sources: Growth Saga (own business - draws), Ambient United (startup),
+  PayPal (affiliate), SGB interest, dividends. Anitadevi (a/c 3368) = internal, ignore.
 
 ## Mapping memory (merchant/keyword -> head)  — confirmed by Yash 2026-06-05
 - Groceries/supermarket: Blinkit, "Blinkit Money", JioMart, DMart, Reliance Retail

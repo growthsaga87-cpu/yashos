@@ -22,9 +22,10 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-from lib_budget import (load_plan, load_ledger, monthly_equivalent,
-                        actuals_by_head_month, dashboard_matrix, fy_months,
-                        current_month, ROOT)
+from lib_budget import (load_plan, load_ledger, load_income, load_balances,
+                        monthly_equivalent, actuals_by_head_month, dashboard_matrix,
+                        fy_months, current_month, income_matrix, pnl_matrix,
+                        balances_matrix, ROOT)
 
 OUT_XLSX = ROOT / "data" / "Yash_Budget.xlsx"
 OUT_CSV = ROOT / "data" / "monthly_actuals.csv"
@@ -167,6 +168,81 @@ def build_monthly_actuals(wb, plan, ledger, months):
         csv.writer(f).writerows(csv_rows)
 
 
+def build_balances(wb, balances):
+    ws = wb.create_sheet("Balances", 2)  # after Dashboard, P&L
+    headers, body, net = balances_matrix(balances)
+    ws.append(["ACCOUNT BALANCES  —  latest known position"])
+    ws.cell(row=1, column=1).font = Font(bold=True, size=14, color="1F4E78")
+    ws.append([])
+    ws.append(headers)
+    _style_header(ws, ws.max_row, len(headers))
+    for r in body:
+        ws.append(r)
+        cell = ws.cell(row=ws.max_row, column=3)
+        cell.fill = UNDER_FILL if r[2] >= 0 else OVER_FILL
+    ws.append(net)
+    last = ws.max_row
+    for c in range(1, len(headers) + 1):
+        ws.cell(row=last, column=c).fill = TOTAL_FILL
+        ws.cell(row=last, column=c).font = BOLD
+    for r in range(4, ws.max_row + 1):
+        ws.cell(row=r, column=3).number_format = MONEY
+        ws.cell(row=r, column=3).alignment = RIGHT
+    ws.append([])
+    ws.append(["Liabilities (credit-card outstanding) shown negative. Investments to be added."])
+    _autosize(ws, [34, 12, 16, 12, 28])
+    return ws
+
+
+def build_income(wb, income, months):
+    ws = wb.create_sheet("Income")
+    headers, body, total = income_matrix(income, months)
+    ws.append(headers)
+    _style_header(ws, 1, len(headers))
+    for r in body:
+        ws.append(r)
+    ws.append(total)
+    last = ws.max_row
+    for c in range(1, len(headers) + 1):
+        ws.cell(row=last, column=c).fill = TOTAL_FILL
+        ws.cell(row=last, column=c).font = BOLD
+    # pending / excluded notes below
+    pend = income.get("pending_classification", [])
+    if pend:
+        ws.append([])
+        ws.append(["PENDING CLASSIFICATION (not counted yet)"])
+        ws.cell(row=ws.max_row, column=1).font = BOLD
+        for r in pend:
+            ws.append([r["date"], r["source"], "", round(float(r["amount"])), "", r.get("note", "")])
+    for r in range(2, ws.max_row + 1):
+        ws.cell(row=r, column=4).number_format = MONEY
+    _autosize(ws, [12, 30, 20, 14, 22, 40])
+    ws.freeze_panes = "A2"
+
+
+def build_pnl(wb, ledger, income, months):
+    ws = wb.create_sheet("P&L", 1)  # right after Dashboard
+    headers, body = pnl_matrix(ledger, income, months)
+    ws.append([f"PROFIT & LOSS  —  FY 2026-27  (income vs recorded expenses)"])
+    ws.cell(row=1, column=1).font = Font(bold=True, size=14, color="1F4E78")
+    ws.append([])
+    ws.append(headers)
+    _style_header(ws, ws.max_row, len(headers))
+    for r in body:
+        ws.append(r)
+        cell = ws.cell(row=ws.max_row, column=1)
+        if "Net" in r[0]:
+            cell.font = BOLD
+    for r in range(4, ws.max_row + 1):
+        for c in range(2, len(headers) + 1):
+            ws.cell(row=r, column=c).number_format = MONEY
+            ws.cell(row=r, column=c).alignment = RIGHT
+    _autosize(ws, [26] + [13] * (len(headers) - 1))
+    ws.append([])
+    ws.append(["Note: expenses are statements recorded so far (partial as accounts are added)."])
+    return ws
+
+
 def build_transactions(wb, ledger):
     ws = wb.create_sheet("Transactions")
     headers = ["Date", "Month", "Description", "Amount", "Account", "Head", "Note"]
@@ -186,6 +262,8 @@ def main(as_of=None):
     The dashboard always shows April -> as_of for FY 2026-27."""
     plan = load_plan()
     ledger = load_ledger()
+    income = load_income()
+    balances = load_balances()
     if as_of is None:
         as_of = current_month()
     months = fy_months(as_of)
@@ -193,8 +271,11 @@ def main(as_of=None):
     wb = Workbook()
     wb.remove(wb.active)  # drop default sheet
     build_dashboard(wb, plan, ledger, months)
+    build_pnl(wb, ledger, income, months)
+    build_balances(wb, balances)
     build_plan_sheet(wb, plan)
     build_monthly_actuals(wb, plan, ledger, months)
+    build_income(wb, income, months)
     build_transactions(wb, ledger)
     wb.save(OUT_XLSX)
     print(f"Wrote {OUT_XLSX}")

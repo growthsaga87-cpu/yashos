@@ -22,9 +22,10 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from lib_budget import (load_plan, load_ledger, monthly_equivalent,
-                        actuals_by_head_month, dashboard_matrix, fy_months,
-                        current_month, ROOT)
+from lib_budget import (load_plan, load_ledger, load_income, load_balances,
+                        monthly_equivalent, actuals_by_head_month, dashboard_matrix,
+                        fy_months, current_month, income_matrix, pnl_matrix,
+                        balances_matrix, ROOT)
 
 CONFIG = ROOT / "data" / "gsheet_config.json"
 CREDS = ROOT / "credentials.json"
@@ -97,6 +98,26 @@ def monthly_actuals_rows(plan, ledger, months):
     return rows
 
 
+def income_rows(income, months):
+    headers, body, total = income_matrix(income, months)
+    rows = [headers] + body + [total]
+    pend = income.get("pending_classification", [])
+    if pend:
+        rows += [[], ["PENDING CLASSIFICATION (not counted yet)"]]
+        rows += [[r["date"], r["source"], "", round(float(r["amount"])), "", r.get("note", "")] for r in pend]
+    return rows
+
+
+def pnl_rows(ledger, income, months):
+    headers, body = pnl_matrix(ledger, income, months)
+    return [["PROFIT & LOSS  —  FY 2026-27  (income vs recorded expenses)"], [], headers] + body
+
+
+def balances_rows(balances):
+    headers, body, net = balances_matrix(balances)
+    return [["ACCOUNT BALANCES  —  latest known position"], [], headers] + body + [net]
+
+
 def transaction_rows(ledger):
     rows = [["Date", "Month", "Description", "Amount", "Account", "Head", "Note"]]
     for t in sorted(ledger["transactions"], key=lambda x: x["date"]):
@@ -122,6 +143,17 @@ def ensure_spreadsheet(svc):
     return sid
 
 
+def ensure_tabs(svc, sid, tab_names):
+    """Add any missing tabs to an existing spreadsheet."""
+    meta = svc.spreadsheets().get(spreadsheetId=sid).execute()
+    existing = {s["properties"]["title"] for s in meta["sheets"]}
+    requests = [{"addSheet": {"properties": {"title": t}}}
+                for t in tab_names if t not in existing]
+    if requests:
+        svc.spreadsheets().batchUpdate(
+            spreadsheetId=sid, body={"requests": requests}).execute()
+
+
 def write_tab(svc, sid, tab, rows):
     svc.spreadsheets().values().clear(
         spreadsheetId=sid, range=f"'{tab}'").execute()
@@ -133,15 +165,22 @@ def write_tab(svc, sid, tab, rows):
 def main(as_of=None):
     plan = load_plan()
     ledger = load_ledger()
+    income = load_income()
+    balances = load_balances()
     if as_of is None:
         as_of = current_month()
     months = fy_months(as_of)
 
     svc = get_service()
     sid = ensure_spreadsheet(svc)
+    ensure_tabs(svc, sid, ["Dashboard", "P&L", "Balances", "Plan",
+                           "Monthly Actuals", "Income", "Transactions"])
     write_tab(svc, sid, "Dashboard", dashboard_rows(plan, ledger, months))
+    write_tab(svc, sid, "P&L", pnl_rows(ledger, income, months))
+    write_tab(svc, sid, "Balances", balances_rows(balances))
     write_tab(svc, sid, "Plan", plan_rows(plan))
     write_tab(svc, sid, "Monthly Actuals", monthly_actuals_rows(plan, ledger, months))
+    write_tab(svc, sid, "Income", income_rows(income, months))
     write_tab(svc, sid, "Transactions", transaction_rows(ledger))
 
     url = json.loads(CONFIG.read_text(encoding="utf-8")).get("url", "")
