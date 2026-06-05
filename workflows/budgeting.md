@@ -84,8 +84,21 @@ position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
 
 ## Special heads / rules (confirmed by Yash 2026-06-05)
 - **Gold Kitty (5g gold/month)** -> head `gold_kitty` (Investment). ~Rs 15,790/mo, varies.
+- **Gullak Gold** (digital gold via "gullakmoney") -> head `gullak_gold` (Investment),
+  ~Rs 8,000/mo, recurring. SEPARATE from gold_kitty. Confirmed by Yash 2026-06-05; no
+  dedicated tab (Yash declined) — it flows through the normal heads/tabs.
 - **ICICI credit card** exists (bill paid from PNB via BillDesk). Get its statements
   to track real spends; the PNB bill payment stays in internal_register (no double count).
+- **Axis credit card** (NEW, first seen May-2026; bill paid from PNB via BillDesk
+  "AXIS CC PAYMEN"). Treat the PNB payment as internal settlement (like ICICI). Get the
+  Axis statement to track real spends.
+- **Growth Saga draws** (From:XXXX0512 / NEFT) = owner's draw from Yash's own business ->
+  **internal_register.internal_transfers (in)**, NOT personal income (avoids double-count;
+  real income tracked at the Growth Saga company account). Same treatment as April.
+- **Yenpure property** maintenance + light bills (UPI payee "PRADIPKU"/"pradipshah 6971",
+  BARB) -> **third_party_borne, billed to Anita Agarwal**, NOT Yash's budget (same as
+  Gopipura). NOTE: a separate UPI payee literally named "YENPURE" (787425031...@ptsb) is
+  Yash's own **medical** (kept as April) — don't conflate the two.
 - **Gopipura repair** (JAG MOHA 9662992503@axl) -> third_party_borne, billed to
   **Anita Agarwal**, NOT Yash's budget.
 - Income sources: Growth Saga (own business - draws), Ambient United (startup),
@@ -99,7 +112,11 @@ position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
   Rajhans Cine World (food court), Chai Naka, bakeries -> **food**
 - Fuel: Krishna Petroleum + "FUEL SURCHARGE AND GST" -> **car_petrol**
 - Pharmacy / clinics: Dr Agarwal's Health, Mayur Pharma -> **medical**
-- Mobile: Vodafone Idea / "UPI VI", **Reliance Retail Ltd "Utilities" = phone recharge** -> **phone**
+- Mobile: Vodafone Idea / "UPI VI", **Reliance Retail Ltd "Utilities" = phone recharge**, **Airtel** -> **phone**
+- **Shaili K / UPI handle 7878972129** -> **gold_kitty** (the 5g gold kitty payee).
+- **Gullak Money / "gullakmoney@yes"** -> **gullak_gold** (separate digital-gold investment).
+- **AESOP TU** (mallucanvai@axl) and **BillDesk "FX Email Payme"** -> **business** (confirmed Yash 2026-06-05).
+- Bakeries (e.g. "ATUL BAK"), creameries ("CREAMY S") -> **food**. Magson, Blinkit/"Blink Co" -> **household**.
 - Apparel: Landmark/EasyBuy, Maximal Ventures -> **shopping**
 - Recreation/clubs/cinema: Avadh Clubs, Imagicaa, **Paraizo Club**, **PVR**, Chhaba -> **entertainment**
 - School: Fountainhead -> **school_fees** (Saisha's school)
@@ -125,6 +142,12 @@ position per account + net), Plan, Monthly Actuals, **Income**, Transactions.
 - One folder per account under `account statements/<account folder>/`. IndusInd 9000 ->
   `account statements/IndusInd Platinum RuPay CC 9000/`. Each account's `statements_folder`
   is recorded in `data/accounts.json`. Naming: `<account> <period start> to <period end>.pdf`.
+- **Capture state (per account):** `data/accounts.json` carries a `capture_state` block per
+  account (`last_captured_date`, `captured_through_period_end`, `next_needed_from`). After
+  processing a statement, UPDATE it. When Yash asks to process a new statement for an account,
+  tell him to share data starting from that account's `next_needed_from`. As of 2026-06-05:
+  PNB 3382 captured through 2026-05-31 (next from 2026-06-01); IndusInd 9000 through 2026-06-04
+  (next from 2026-06-05).
 
 ## Git (since 2026-06-05)
 - Remote: https://github.com/growthsaga87-cpu/yashos (PUBLIC). Push as owner
